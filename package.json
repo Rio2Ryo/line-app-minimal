@@ -1,0 +1,36 @@
+{
+  "name": "line-googledrive-app",
+  "version": "1.0.0",
+  "description": "Automatically save LINE Official Account messages and files to Google Drive",
+  "main": "api/webhook.js",
+  "scripts": {
+    "start": "node src/app.js",
+    "dev": "nodemon src/app.js",
+    "test": "jest",
+    "build": "echo 'No build step needed'",
+    "vercel-build": "echo 'Vercel build complete'"
+  },
+  "keywords": [
+    "LINE",
+    "Google Drive",
+    "webhook",
+    "automation"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@line/bot-sdk": "^8.0.0",
+    "axios": "^1.6.0",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "googleapis": "^131.0.0",
+    "localtunnel": "^2.0.2",
+    "mime-types": "^2.1.35",
+    "multer": "^1.4.5-lts.1",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.2"
+  }
+}
