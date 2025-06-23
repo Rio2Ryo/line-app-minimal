@@ -1,29 +1,59 @@
 const crypto = require('crypto');
 const googleDriveMessageHandler = require('../src/services/googleDriveMessageHandler');
-const googleDriveService = require('../src/services/googleDriveServiceOAuth');
 const logger = require('../src/utils/logger');
 
 // Vercel環境変数から設定を読み込み
-const config = {
+const appConfig = {
   line: {
-    channelSecret: process.env.LINE_CHANNEL_SECRET,
-    accessToken: process.env.LINE_ACCESS_TOKEN,
+    channelSecret: process.env.LINE_CHANNEL_SECRET || 'test-secret',
+    accessToken: process.env.LINE_ACCESS_TOKEN || 'test-token',
   },
   google: {
-    clientId: process.env.GOOGLE_CLIENT_ID,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    refreshToken: process.env.GOOGLE_REFRESH_TOKEN,
-    driveFolderId: process.env.GOOGLE_DRIVE_FOLDER_ID,
+    clientId: process.env.GOOGLE_CLIENT_ID || 'test-client-id',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'test-client-secret',
+    refreshToken: process.env.GOOGLE_REFRESH_TOKEN || 'test-refresh-token',
+    driveFolderId: process.env.GOOGLE_DRIVE_FOLDER_ID || 'test-folder-id',
   },
 };
 
-// LINE Signature検証関数
+// 簡単なログ関数
+function log(message, data = null) {
+  const timestamp = new Date().toISOString();
+  console.log(`[${timestamp}] ${message}`, data || '');
+}
+
+// LINE Signature検証関数（シンプル版）
 function validateSignature(body, signature, channelSecret) {
-  const hash = crypto
-    .createHmac('SHA256', channelSecret)
-    .update(body, 'utf8')
-    .digest('base64');
-  return hash === signature;
+  if (!channelSecret || !signature) {
+    return false;
+  }
+  
+  try {
+    const hash = crypto
+      .createHmac('SHA256', channelSecret)
+      .update(body, 'utf8')
+      .digest('base64');
+    return hash === signature;
+  } catch (error) {
+    log('署名検証エラー:', error.message);
+    return false;
+  }
+}
+
+// ヘルパー関数：raw bodyを読み取る
+async function getRawBody(req) {
+  const chunks = [];
+  for await (const chunk of req) {
+    chunks.push(chunk);
+  }
+  return Buffer.concat(chunks).toString('utf8');
+}
+
+// Vercel設定でbodyParserを無効化
+export const config = {
+  api: {
+    bodyParser: false,
+  },
 }
 
 export default async function handler(req, res) {
@@ -32,187 +62,116 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-line-signature');
 
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-
-  if (req.method === 'GET') {
-    return res.status(200).json({
-      message: 'LINE to Google Drive Integration Service - Vercel',
-      status: 'OK',
-      timestamp: new Date().toISOString(),
-      features: [
-        'Personal chat messages',
-        'Group chat messages',
-        'Room chat messages',
-        'All file types (PDF, images, videos, etc.)',
-        'Google Drive automatic upload',
-        'Date-based folder organization'
-      ]
-    });
-  }
-
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
-
   try {
-    const signature = req.headers['x-line-signature'];
-    const body = req.body;
-    
-    console.log('🔗 Webhook受信:');
-    console.log('  - Signature:', signature ? '✅ あり' : '❌ なし');
-    console.log('  - Body Length:', JSON.stringify(body).length);
-    
-    if (!signature) {
-      console.log('⚠️  テストリクエスト（署名なし）');
-      return res.status(200).json({ message: 'Test request received (no signature)' });
+    log(`Webhook受信: ${req.method}`);
+
+    if (req.method === 'OPTIONS') {
+      return res.status(200).end();
     }
 
-    // Signature validation
-    const bodyString = JSON.stringify(body);
-    const isValid = validateSignature(bodyString, signature, config.line.channelSecret);
+    if (req.method === 'GET') {
+      return res.status(200).json({
+        message: 'LINE Bot Webhook - Simple Version',
+        status: 'OK',
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (req.method !== 'POST') {
+      return res.status(200).json({ message: 'Method not allowed but returning 200' });
+    }
+
+    // シンプルなbody読み取り
+    const rawBody = await getRawBody(req);
+    const signature = req.headers['x-line-signature'];
+    
+    log('Body受信完了', `Length: ${rawBody.length}, Signature: ${signature ? 'あり' : 'なし'}`);
+
+    // 署名なしの場合は受け入れ（テスト用）
+    if (!signature) {
+      log('署名なしリクエスト - テストとして処理');
+      return res.status(200).json({ message: 'Test request accepted (no signature)' });
+    }
+
+    // 署名検証
+    const isValid = validateSignature(rawBody, signature, appConfig.line.channelSecret);
     
     if (!isValid) {
-      console.log('❌ 署名検証失敗');
-      logger.error('Invalid signature');
-      return res.status(400).json({ error: 'Invalid signature' });
+      log('署名検証失敗', {
+        signature: signature?.substring(0, 20) + '...',
+        bodyLength: rawBody.length,
+        hasSecret: !!appConfig.line.channelSecret
+      });
+      // 署名失敗でも200を返す
+      return res.status(200).json({ message: 'Signature validation failed but returning 200' });
     }
 
-    console.log('✅ 署名検証成功');
-    
-    if (!body.events || !Array.isArray(body.events)) {
-      console.log('⚠️  イベントなし');
-      return res.status(200).json({ message: 'No events to process' });
+    log('署名検証成功');
+
+    // JSON解析
+    let body;
+    try {
+      body = JSON.parse(rawBody);
+    } catch (parseError) {
+      log('JSON解析エラー', parseError.message);
+      return res.status(200).json({ message: 'JSON parse error but returning 200' });
     }
 
-    // Process events
-    console.log(`📨 ${body.events.length}件のイベントを処理中...`);
-    
-    const results = await Promise.allSettled(
-      body.events.map(async (event, index) => {
-        console.log(`\n📝 イベント ${index + 1}:`);
-        console.log(`  - タイプ: ${event.type}`);
-        console.log(`  - ユーザーID: ${event.source?.userId || 'N/A'}`);
-        console.log(`  - 送信元タイプ: ${event.source?.type || 'N/A'}`);
-        
-        if (event.source?.groupId) {
-          console.log(`  - グループID: ${event.source.groupId}`);
-        }
-        if (event.source?.roomId) {
-          console.log(`  - ルームID: ${event.source.roomId}`);
-        }
-        
-        console.log(`  - タイムスタンプ: ${new Date(event.timestamp).toLocaleString('ja-JP')}`);
-        
-        if (event.type === 'message') {
-          const message = event.message;
-          const sourceInfo = googleDriveMessageHandler.parseSourceInfo(event.source);
-          const timestamp = new Date(event.timestamp);
-
-          console.log(`  - メッセージタイプ: ${message.type}`);
+    // イベント処理（Google Drive統合版）
+    if (body.events && Array.isArray(body.events)) {
+      log(`${body.events.length}件のイベントを受信`);
+      
+      const results = await Promise.allSettled(
+        body.events.map(async (event, index) => {
+          log(`イベント${index + 1}`, {
+            type: event.type,
+            sourceType: event.source?.type,
+            userId: event.source?.userId,
+            messageType: event.message?.type
+          });
           
-          try {
-            let uploadResult;
-            
-            switch (message.type) {
-              case 'text':
-                console.log(`  - テキスト: "${message.text}"`);
-                uploadResult = await googleDriveMessageHandler.handleTextMessage(message, sourceInfo, timestamp);
-                break;
-                
-              case 'image':
-              case 'video':
-              case 'audio':
-              case 'file':
-                console.log(`  - メッセージID: ${message.id}`);
-                if (message.fileName) {
-                  console.log(`  - ファイル名: ${message.fileName}`);
-                }
-                // Vercel環境ではLINE Clientを動的に作成
-                const { Client } = require('@line/bot-sdk');
-                const client = new Client({
-                  channelAccessToken: config.line.accessToken,
-                });
-                uploadResult = await googleDriveMessageHandler.handleFileMessage(message, sourceInfo, timestamp, client);
-                break;
-                
-              default:
-                console.log(`  - ❌ サポートされていないメッセージタイプ: ${message.type}`);
-                return;
+          if (event.type === 'message') {
+            try {
+              // Google Drive処理を実行
+              const result = await googleDriveMessageHandler.handleMessage(event, appConfig);
+              log('Google Drive処理成功', result);
+              return { success: true, result };
+            } catch (error) {
+              log('Google Drive処理エラー', error.message);
+              return { success: false, error: error.message };
             }
-            
-            console.log(`  - ✅ Google Drive保存完了`);
-            console.log(`  - 🔗 ファイルURL: ${uploadResult.webViewLink}`);
-            
-            logger.info('Event processed successfully for Google Drive:', {
-              type: event.type,
-              sourceType: event.source?.type,
-              userId: event.source?.userId,
-              groupId: event.source?.groupId,
-              roomId: event.source?.roomId,
-              messageType: event.message?.type,
-              fileName: event.message?.fileName,
-              googleDriveFileId: uploadResult.fileId,
-              webViewLink: uploadResult.webViewLink,
-              timestamp: event.timestamp
-            });
-            
-            return { success: true, uploadResult };
-            
-          } catch (error) {
-            console.log(`  - ❌ エラー: ${error.message}`);
-            logger.error('Error processing message for Google Drive:', {
-              error: error.message,
-              eventType: event.type,
-              sourceType: event.source?.type,
-              messageType: message.type,
-              userId: event.source?.userId,
-              groupId: event.source?.groupId,
-              roomId: event.source?.roomId
-            });
-            return { success: false, error: error.message };
+          } else if (event.type === 'join') {
+            log('Botがグループ/ルームに参加しました');
+            return { success: true, joined: true };
+          } else if (event.type === 'leave') {
+            log('Botがグループ/ルームから退出しました');
+            return { success: true, left: true };
+          } else {
+            log('メッセージ以外のイベントはスキップ');
+            return { success: true, skipped: true };
           }
-        } else if (event.type === 'join') {
-          console.log('  - 🎉 Botがグループ/ルームに参加しました');
-          logger.info('Bot joined group/room:', {
-            sourceType: event.source?.type,
-            groupId: event.source?.groupId,
-            roomId: event.source?.roomId
-          });
-          return { success: true, joined: true };
-        } else if (event.type === 'leave') {
-          console.log('  - 👋 Botがグループ/ルームから退出しました');
-          logger.info('Bot left group/room:', {
-            sourceType: event.source?.type,
-            groupId: event.source?.groupId,
-            roomId: event.source?.roomId
-          });
-          return { success: true, left: true };
-        } else {
-          console.log('  - ⚠️  メッセージ以外のイベントはスキップ');
-          return { success: true, skipped: true };
-        }
-      })
-    );
+        })
+      );
+      
+      const successful = results.filter(r => r.status === 'fulfilled' && r.value?.success).length;
+      const failed = results.filter(r => r.status === 'rejected' || !r.value?.success).length;
+      log(`処理結果: 成功 ${successful}件, 失敗 ${failed}件`);
+    }
 
-    const successful = results.filter(r => r.status === 'fulfilled' && r.value?.success).length;
-    const failed = results.filter(r => r.status === 'rejected' || !r.value?.success).length;
-    
-    console.log(`\n📊 処理結果: 成功 ${successful}件, 失敗 ${failed}件`);
-    
+    // 成功レスポンス
     return res.status(200).json({
-      message: 'Events processed successfully',
-      results: {
-        total: body.events.length,
-        successful,
-        failed
-      }
+      message: 'Webhook processed successfully',
+      receivedEvents: body.events?.length || 0,
+      timestamp: new Date().toISOString()
     });
 
   } catch (error) {
-    console.log('❌ Webhookエラー:', error.message);
-    logger.error('Webhook error:', { error: error.message, stack: error.stack });
-    return res.status(500).json({ error: 'Internal server error' });
+    log('Webhookエラー', error.message);
+    // エラーでも200を返す
+    return res.status(200).json({ 
+      message: 'Error occurred but returning 200',
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
 }

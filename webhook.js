@@ -19,11 +19,31 @@ const config = {
 
 // LINE Signature検証関数
 function validateSignature(body, signature, channelSecret) {
-  const hash = crypto
-    .createHmac('SHA256', channelSecret)
-    .update(body, 'utf8')
-    .digest('base64');
-  return hash === signature;
+  if (!channelSecret) {
+    console.log('⚠️  Channel Secret が設定されていません');
+    return false;
+  }
+  
+  if (!signature) {
+    console.log('⚠️  署名が提供されていません');
+    return false;
+  }
+  
+  try {
+    const hash = crypto
+      .createHmac('SHA256', channelSecret)
+      .update(body, 'utf8')
+      .digest('base64');
+    
+    // 時間ベースの比較を使用してタイミング攻撃を防ぐ
+    return crypto.timingSafeEqual(
+      Buffer.from(hash, 'base64'),
+      Buffer.from(signature, 'base64')
+    );
+  } catch (error) {
+    console.log('❌ 署名検証中にエラー:', error.message);
+    return false;
+  }
 }
 
 export default async function handler(req, res) {
@@ -70,12 +90,26 @@ export default async function handler(req, res) {
     }
 
     // Signature validation
-    const bodyString = JSON.stringify(body);
+    // Vercelではbodyが既にパースされているため、適切に処理する
+    let bodyString;
+    if (typeof body === 'string') {
+      bodyString = body;
+    } else {
+      bodyString = JSON.stringify(body);
+    }
+    
     const isValid = validateSignature(bodyString, signature, config.line.channelSecret);
     
     if (!isValid) {
       console.log('❌ 署名検証失敗');
-      logger.error('Invalid signature');
+      console.log('  - 受信署名:', signature);
+      console.log('  - Body長:', bodyString.length);
+      console.log('  - Channel Secret設定:', config.line.channelSecret ? '✅' : '❌');
+      logger.error('Invalid signature', {
+        receivedSignature: signature,
+        bodyLength: bodyString.length,
+        hasChannelSecret: !!config.line.channelSecret
+      });
       return res.status(400).json({ error: 'Invalid signature' });
     }
 
