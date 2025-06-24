@@ -71,9 +71,10 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       return res.status(200).json({
-        message: 'LINE Bot Webhook - Simple Version',
+        message: 'LINE Bot Webhook - Google Drive Integration v2',
         status: 'OK',
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        version: '2.0-googledrive'
       });
     }
 
