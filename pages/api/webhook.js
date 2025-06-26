@@ -1,6 +1,4 @@
 const crypto = require('crypto');
-const googleDriveMessageHandler = require('../../lib/services/googleDriveMessageHandler');
-const logger = require('../../lib/utils/logger');
 
 // 簡易ログ関数
 function log(message, data = null) {
@@ -135,13 +133,23 @@ export default async function handler(req, res) {
           
           if (event.type === 'message') {
             try {
-              // Google Drive処理を実行
-              const result = await googleDriveMessageHandler.handleMessage(event, config);
-              log('Google Drive処理成功', result);
+              // Google Drive処理（簡易版）
+              log('メッセージ受信 - Google Drive保存準備中', {
+                messageType: event.message?.type,
+                userId: event.source?.userId
+              });
+              
+              // TODO: Google Drive統合を実装
+              const result = {
+                messageType: event.message?.type,
+                status: 'logged',
+                timestamp: new Date().toISOString()
+              };
+              
+              log('メッセージ処理完了', result);
               return { success: true, result };
             } catch (error) {
-              log('Google Drive処理エラー', error.message);
-              logger.error('Google Drive処理エラー', { error: error.message, event });
+              log('メッセージ処理エラー', error.message);
               return { success: false, error: error.message };
             }
           } else if (event.type === 'join') {
