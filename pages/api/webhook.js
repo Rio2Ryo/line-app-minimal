@@ -1,4 +1,6 @@
 const crypto = require('crypto');
+const googleDriveMessageHandler = require('../../lib/services/googleDriveMessageHandler');
+const logger = require('../../lib/utils/logger');
 
 // 簡易ログ関数
 function log(message, data = null) {
@@ -105,18 +107,59 @@ export default async function handler(req, res) {
       });
     }
 
-    // イベント処理（シンプル版）
+    // イベント処理（Google Drive統合版）
     if (body.events && Array.isArray(body.events)) {
       log(`${body.events.length}件のイベントを受信`);
       
-      body.events.forEach((event, index) => {
-        log(`イベント${index + 1}`, {
-          type: event.type,
-          sourceType: event.source?.type,
-          userId: event.source?.userId,
-          messageType: event.message?.type
-        });
-      });
+      const config = {
+        line: {
+          channelSecret: process.env.LINE_CHANNEL_SECRET || 'test-secret',
+          accessToken: process.env.LINE_ACCESS_TOKEN || 'test-token',
+        },
+        google: {
+          clientId: process.env.GOOGLE_CLIENT_ID || 'test-client-id',
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'test-client-secret',
+          refreshToken: process.env.GOOGLE_REFRESH_TOKEN || 'test-refresh-token',
+          driveFolderId: process.env.GOOGLE_DRIVE_FOLDER_ID || 'test-folder-id',
+        },
+      };
+      
+      const results = await Promise.allSettled(
+        body.events.map(async (event, index) => {
+          log(`イベント${index + 1}`, {
+            type: event.type,
+            sourceType: event.source?.type,
+            userId: event.source?.userId,
+            messageType: event.message?.type
+          });
+          
+          if (event.type === 'message') {
+            try {
+              // Google Drive処理を実行
+              const result = await googleDriveMessageHandler.handleMessage(event, config);
+              log('Google Drive処理成功', result);
+              return { success: true, result };
+            } catch (error) {
+              log('Google Drive処理エラー', error.message);
+              logger.error('Google Drive処理エラー', { error: error.message, event });
+              return { success: false, error: error.message };
+            }
+          } else if (event.type === 'join') {
+            log('Botがグループ/ルームに参加しました');
+            return { success: true, joined: true };
+          } else if (event.type === 'leave') {
+            log('Botがグループ/ルームから退出しました');
+            return { success: true, left: true };
+          } else {
+            log('メッセージ以外のイベントはスキップ');
+            return { success: true, skipped: true };
+          }
+        })
+      );
+      
+      const successful = results.filter(r => r.status === 'fulfilled' && r.value?.success).length;
+      const failed = results.filter(r => r.status === 'rejected' || !r.value?.success).length;
+      log(`処理結果: 成功 ${successful}件, 失敗 ${failed}件`);
     }
 
     // 成功レスポンス
