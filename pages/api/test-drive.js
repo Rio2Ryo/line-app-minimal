@@ -10,7 +10,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    log('Google Drive API接続テスト開始');
+    log('Google Drive API接続テスト開始 - 環境変数更新後');
 
     // 環境変数の確認
     const config = {
