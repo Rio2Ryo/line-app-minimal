@@ -20,6 +20,9 @@
     "next": "^14.0.0",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "googleapis": "^131.0.0"
+    "googleapis": "^131.0.0",
+    "@line/bot-sdk": "^8.0.0",
+    "axios": "^1.6.0",
+    "mime-types": "^2.1.35"
   }
 }

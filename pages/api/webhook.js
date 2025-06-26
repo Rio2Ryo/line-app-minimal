@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const GoogleDriveService = require('../../lib/google-drive-service');
 
 // 簡易ログ関数
 function log(message, data = null) {
@@ -53,11 +54,11 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       return res.status(200).json({
-        message: 'LINE Bot Webhook - Message Logging Version',
+        message: 'LINE Bot Webhook - Google Drive Integration',
         status: 'OK',
         timestamp: new Date().toISOString(),
-        version: '4.0-message-logging',
-        features: ['Message reception', 'Event logging', 'Ready for Google Drive']
+        version: '5.0-google-drive-active',
+        features: ['Message reception', 'Google Drive file saving', 'Text message saving', 'Image/Video saving', 'Date-based folders']
       });
     }
 
@@ -134,23 +135,32 @@ export default async function handler(req, res) {
           
           if (event.type === 'message') {
             try {
-              // Google Drive処理（簡易版）
-              log('メッセージ受信 - Google Drive保存準備中', {
+              log('メッセージ受信 - Google Drive保存開始', {
+                messageType: event.message?.type,
+                userId: event.source?.userId,
+                messageId: event.message?.id
+              });
+              
+              // Google Drive サービス初期化
+              const driveService = new GoogleDriveService(config);
+              
+              // Google Drive に保存
+              const result = await driveService.handleMessage(event);
+              
+              log('Google Drive保存完了', {
+                success: result.success,
+                fileName: result.fileName,
+                folder: result.folder,
+                fileId: result.fileId
+              });
+              
+              return { success: true, result };
+            } catch (error) {
+              log('Google Drive保存エラー', {
+                error: error.message,
                 messageType: event.message?.type,
                 userId: event.source?.userId
               });
-              
-              // TODO: Google Drive統合を実装
-              const result = {
-                messageType: event.message?.type,
-                status: 'logged',
-                timestamp: new Date().toISOString()
-              };
-              
-              log('メッセージ処理完了', result);
-              return { success: true, result };
-            } catch (error) {
-              log('メッセージ処理エラー', error.message);
               return { success: false, error: error.message };
             }
           } else if (event.type === 'join') {
