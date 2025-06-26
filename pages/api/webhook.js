@@ -53,10 +53,11 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       return res.status(200).json({
-        message: 'LINE Bot Webhook - Fixed Version',
+        message: 'LINE Bot Webhook - Message Logging Version',
         status: 'OK',
         timestamp: new Date().toISOString(),
-        version: '3.0-fixed'
+        version: '4.0-message-logging',
+        features: ['Message reception', 'Event logging', 'Ready for Google Drive']
       });
     }
 
