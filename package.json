@@ -4,8 +4,9 @@
   "description": "LINE Bot with Google Drive integration - minimal version",
   "main": "api/webhook.js",
   "scripts": {
-    "build": "echo 'No build step needed for serverless functions'",
-    "dev": "vercel dev"
+    "build": "next build",
+    "dev": "next dev",
+    "start": "next start"
   },
   "keywords": [
     "LINE",
