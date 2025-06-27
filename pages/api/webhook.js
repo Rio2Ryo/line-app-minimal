@@ -4,6 +4,11 @@ const GoogleDriveService = require('../../lib/google-drive-service');
 // 簡易ログ関数
 function log(message, data = null) {
   console.log(`[${new Date().toISOString()}] ${message}`, data || '');
+  
+  // グローバルログにも記録
+  if (global.addWebhookLog) {
+    global.addWebhookLog('INFO', message, data);
+  }
 }
 
 // LINE Signature検証関数
@@ -46,7 +51,15 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-line-signature');
 
   try {
-    log(`Webhook受信: ${req.method}`);
+    log(`Webhook受信: ${req.method}`, {
+      headers: {
+        'user-agent': req.headers['user-agent'],
+        'x-line-signature': req.headers['x-line-signature'] ? 'あり' : 'なし',
+        'content-type': req.headers['content-type'],
+        'content-length': req.headers['content-length']
+      },
+      ip: req.headers['x-forwarded-for'] || req.connection?.remoteAddress
+    });
 
     if (req.method === 'OPTIONS') {
       return res.status(200).end();
@@ -163,10 +176,14 @@ export default async function handler(req, res) {
             } catch (error) {
               log('Google Drive保存エラー', {
                 error: error.message,
+                stack: error.stack,
                 messageType: event.message?.type,
-                userId: event.source?.userId
+                userId: event.source?.userId,
+                sourceType: event.source?.type,
+                groupId: event.source?.groupId,
+                timestamp: event.timestamp
               });
-              return { success: false, error: error.message };
+              return { success: false, error: error.message, stack: error.stack };
             }
           } else if (event.type === 'join') {
             log('Botがグループ/ルームに参加しました');
