@@ -168,7 +168,21 @@ export default async function handler(req, res) {
               log('メッセージ受信 - Google Drive保存開始', {
                 messageType: event.message?.type,
                 userId: event.source?.userId,
-                messageId: event.message?.id
+                messageId: event.message?.id,
+                sourceType: event.source?.type,
+                groupId: event.source?.groupId,
+                roomId: event.source?.roomId,
+                timestamp: event.timestamp,
+                messageText: event.message?.text?.substring(0, 50) + '...'
+              });
+              
+              // 環境変数の再確認
+              log('環境変数確認', {
+                hasGoogleClientId: !!process.env.GOOGLE_CLIENT_ID,
+                hasGoogleClientSecret: !!process.env.GOOGLE_CLIENT_SECRET,
+                hasGoogleRefreshToken: !!process.env.GOOGLE_REFRESH_TOKEN,
+                hasGoogleDriveFolderId: !!process.env.GOOGLE_DRIVE_FOLDER_ID,
+                hasLineAccessToken: !!process.env.LINE_ACCESS_TOKEN
               });
               
               // Google Drive サービス初期化
@@ -179,9 +193,11 @@ export default async function handler(req, res) {
               
               log('Google Drive保存完了', {
                 success: result.success,
-                fileName: result.fileName,
+                fileName: result.fileName || result.docName,
                 folder: result.folder,
-                fileId: result.fileId
+                fileId: result.fileId || result.docId,
+                action: result.action,
+                skipped: result.skipped
               });
               
               return { success: true, result };
