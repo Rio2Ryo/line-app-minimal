@@ -54,11 +54,17 @@ export default async function handler(req, res) {
 
     if (req.method === 'GET') {
       return res.status(200).json({
-        message: 'LINE Bot Webhook - Google Drive Integration',
+        message: 'LINE Bot Webhook - Advanced Google Drive Integration',
         status: 'OK',
         timestamp: new Date().toISOString(),
-        version: '5.0-google-drive-active',
-        features: ['Message reception', 'Google Drive file saving', 'Text message saving', 'Image/Video saving', 'Date-based folders']
+        version: '6.0-group-organized',
+        features: [
+          'Group-based folder organization', 
+          'Single Google Docs per day per group',
+          'Japanese timezone (JST) support',
+          'Message appending to daily docs',
+          'File saving with JST timestamps'
+        ]
       });
     }
 
