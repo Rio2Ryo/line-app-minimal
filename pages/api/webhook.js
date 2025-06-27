@@ -77,29 +77,28 @@ export default async function handler(req, res) {
     
     log('リクエスト受信', `Body長: ${rawBody.length}, Signature: ${signature ? 'あり' : 'なし'}`);
 
-    // 署名なしでも受け入れ（テスト用）
+    // 署名なしでも受け入れ（テスト用） - メッセージ処理は続行
     if (!signature) {
-      log('署名なしリクエスト - テストとして処理');
-      return res.status(200).json({ 
-        message: 'Test request accepted (no signature)', 
-        timestamp: new Date().toISOString() 
-      });
+      log('署名なしリクエスト - テストとして処理（メッセージ処理続行）');
     }
 
-    // 署名検証
-    const channelSecret = process.env.LINE_CHANNEL_SECRET || 'test-secret';
-    const isValid = validateSignature(rawBody, signature, channelSecret);
-    
-    if (!isValid) {
-      log('署名検証失敗');
-      // 署名失敗でも200を返す（LINE Platform要件）
-      return res.status(200).json({ 
-        message: 'Signature validation failed but returning 200',
-        timestamp: new Date().toISOString()
-      });
+    // 署名検証（署名がある場合のみ）
+    let isValid = true; // デフォルトでtrueに設定
+    if (signature) {
+      const channelSecret = process.env.LINE_CHANNEL_SECRET || 'test-secret';
+      isValid = validateSignature(rawBody, signature, channelSecret);
+      
+      if (!isValid) {
+        log('署名検証失敗 - メッセージ処理はスキップ');
+        return res.status(200).json({ 
+          message: 'Signature validation failed but returning 200',
+          timestamp: new Date().toISOString()
+        });
+      }
+      log('署名検証成功');
+    } else {
+      log('署名なし - テストモードで続行');
     }
-
-    log('署名検証成功');
 
     // JSON解析
     let body;
