@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const GoogleDriveService = require('../../lib/google-drive-service');
+const GoogleDriveService = require('../../lib/google-drive-service-simple');
 
 // 簡易ログ関数
 function log(message, data = null) {
@@ -73,7 +73,7 @@ export default async function handler(req, res) {
         message: 'LINE Bot Webhook - Advanced Google Drive Integration',
         status: 'OK',
         timestamp: new Date().toISOString(),
-        version: '6.2-debug-signature-validation',
+        version: '6.3-simplified-drive-service',
         features: [
           'Group-based folder organization', 
           'Single Google Docs per day per group',
