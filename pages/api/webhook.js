@@ -50,6 +50,9 @@ export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-line-signature');
 
+  let rawBody = '';
+  let processingResult = null;
+
   try {
     log(`Webhook受信: ${req.method}`, {
       headers: {
@@ -82,10 +85,14 @@ export default async function handler(req, res) {
     }
 
     if (req.method !== 'POST') {
+      // リアルタイムログに記録
+      if (global.logWebhookRequest) {
+        global.logWebhookRequest(req, null, { method: req.method, processed: false });
+      }
       return res.status(200).json({ message: 'Method not allowed but returning 200' });
     }
 
-    const rawBody = await getRawBody(req);
+    rawBody = await getRawBody(req);
     const signature = req.headers['x-line-signature'];
     
     log('リクエスト受信', `Body長: ${rawBody.length}, Signature: ${signature ? 'あり' : 'なし'}`);
@@ -209,6 +216,17 @@ export default async function handler(req, res) {
     }
 
     // 成功レスポンス
+    processingResult = {
+      success: true,
+      receivedEvents: body.events?.length || 0,
+      processed: true
+    };
+    
+    // リアルタイムログに記録
+    if (global.logWebhookRequest) {
+      global.logWebhookRequest(req, rawBody, processingResult);
+    }
+    
     return res.status(200).json({
       message: 'Webhook processed successfully',
       receivedEvents: body.events?.length || 0,
@@ -217,6 +235,18 @@ export default async function handler(req, res) {
 
   } catch (error) {
     log('Webhookエラー', error.message);
+    
+    // エラーログに記録
+    processingResult = {
+      success: false,
+      error: error.message,
+      processed: false
+    };
+    
+    if (global.logWebhookRequest) {
+      global.logWebhookRequest(req, rawBody, processingResult);
+    }
+    
     // エラーでも200を返す
     return res.status(200).json({ 
       message: 'Error occurred but returning 200',
