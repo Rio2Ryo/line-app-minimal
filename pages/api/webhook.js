@@ -57,7 +57,7 @@ export default async function handler(req, res) {
         message: 'LINE Bot Webhook - Advanced Google Drive Integration',
         status: 'OK',
         timestamp: new Date().toISOString(),
-        version: '6.0-group-organized',
+        version: '6.1-text-content-fixed',
         features: [
           'Group-based folder organization', 
           'Single Google Docs per day per group',
