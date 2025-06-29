@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const { saveToGoogleDrive } = require('../../lib/simple-drive');
+const { saveToGoogleDrive, saveFileToGoogleDrive } = require('../../lib/simple-drive');
 
 // LINE署名検証
 function validateSignature(body, signature, channelSecret) {
@@ -41,7 +41,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         message: 'LINE Bot Webhook - Simplified',
         status: 'OK',
-        version: '7.0-simple',
+        version: '7.1-file-support',
         timestamp: new Date().toISOString()
       });
     }
@@ -76,6 +76,9 @@ export default async function handler(req, res) {
       console.log(`${body.events.length}件のイベント処理開始`);
 
       const config = {
+        line: {
+          accessToken: process.env.LINE_ACCESS_TOKEN,
+        },
         google: {
           clientId: process.env.GOOGLE_CLIENT_ID,
           clientSecret: process.env.GOOGLE_CLIENT_SECRET,
@@ -85,17 +88,36 @@ export default async function handler(req, res) {
       };
 
       for (const event of body.events) {
-        if (event.type === 'message' && event.message.type === 'text') {
-          console.log(`テキストメッセージ処理: ${event.message.text.substring(0, 50)}...`);
-          
-          const result = await saveToGoogleDrive(
-            event.message.text,
-            event.source,
-            event.timestamp,
-            config
-          );
-          
-          console.log(`処理結果: ${result.success ? '成功' : '失敗'}`);
+        if (event.type === 'message') {
+          if (event.message.type === 'text') {
+            console.log(`テキストメッセージ処理: ${event.message.text.substring(0, 50)}...`);
+            
+            const result = await saveToGoogleDrive(
+              event.message.text,
+              event.source,
+              event.timestamp,
+              config
+            );
+            
+            console.log(`テキスト処理結果: ${result.success ? '成功' : '失敗'}`);
+          }
+          // ファイル処理を追加
+          else if (['image', 'video', 'audio', 'file'].includes(event.message.type)) {
+            console.log(`ファイル処理開始: ${event.message.type} (ID: ${event.message.id})`);
+            
+            const result = await saveFileToGoogleDrive(
+              event.message.id,
+              event.message.fileName,
+              event.source,
+              event.timestamp,
+              config
+            );
+            
+            console.log(`ファイル処理結果: ${result.success ? '成功' : '失敗'} - ${result.fileName || result.error}`);
+          }
+          else {
+            console.log(`未対応メッセージタイプ: ${event.message.type}`);
+          }
         }
       }
     }
