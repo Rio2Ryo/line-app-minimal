@@ -1,5 +1,5 @@
 const crypto = require('crypto');
-const GoogleDriveService = require('../../lib/google-drive-service-simple');
+// const GoogleDriveService = require('../../lib/google-drive-service-simple');
 
 // 簡易ログ関数
 function log(message, data = null) {
@@ -73,7 +73,7 @@ export default async function handler(req, res) {
         message: 'LINE Bot Webhook - Advanced Google Drive Integration',
         status: 'OK',
         timestamp: new Date().toISOString(),
-        version: '6.3-simplified-drive-service',
+        version: '6.4-deployment-fix',
         features: [
           'Group-based folder organization', 
           'Single Google Docs per day per group',
@@ -185,11 +185,14 @@ export default async function handler(req, res) {
                 hasLineAccessToken: !!process.env.LINE_ACCESS_TOKEN
               });
               
-              // Google Drive サービス初期化
-              const driveService = new GoogleDriveService(config);
+              // 簡易テスト - Google Drive処理をスキップ
+              log('Google Drive処理をスキップ（デプロイテスト）');
               
-              // Google Drive に保存
-              const result = await driveService.handleMessage(event);
+              const result = {
+                success: true,
+                message: 'Deployment test - Google Drive disabled',
+                skipped: true
+              };
               
               log('Google Drive保存完了', {
                 success: result.success,
