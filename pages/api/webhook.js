@@ -41,7 +41,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         message: 'LINE Bot Webhook - Simplified',
         status: 'OK',
-        version: '7.2-group-folders',
+        version: '7.4-date-folders',
         timestamp: new Date().toISOString()
       });
     }
