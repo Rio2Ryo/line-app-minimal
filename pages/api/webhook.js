@@ -41,7 +41,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         message: 'LINE Bot Webhook - Simplified',
         status: 'OK',
-        version: '8.0-enhanced-names',
+        version: '8.1-jst-fixed',
         timestamp: new Date().toISOString()
       });
     }
