@@ -95,15 +95,15 @@ export default async function handler(req, res) {
         
         const userId = event.source?.userId;
         
-        // ユーザー権限チェック
-        if (config.users.enabledUserIds.length > 0 && !config.users.enabledUserIds.includes(userId)) {
-          console.log(`[音声Webhook] 権限なし: ${userId}`);
-          await replyMessage(
-            event.replyToken,
-            formatErrorMessage('user_not_enabled')
-          );
-          continue;
-        }
+        // ユーザー権限チェック（制限なし - 全ユーザー利用可能）
+        // if (config.users.enabledUserIds.length > 0 && !config.users.enabledUserIds.includes(userId)) {
+        //   console.log(`[音声Webhook] 権限なし: ${userId}`);
+        //   await replyMessage(
+        //     event.replyToken,
+        //     formatErrorMessage('user_not_enabled')
+        //   );
+        //   continue;
+        // }
         
         // テキストメッセージ（ヘルプ）
         if (event.message.type === 'text') {

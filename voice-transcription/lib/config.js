@@ -26,8 +26,7 @@ module.exports = {
   
   // ユーザー設定
   users: {
-    // 音声文字起こし機能を使用できるUSER ID
-    enabledUserIds: process.env.VOICE_ENABLED_USER_IDS ? 
-      process.env.VOICE_ENABLED_USER_IDS.split(',').map(id => id.trim()) : []
+    // 全ユーザーが利用可能（制限なし）
+    enabledUserIds: []
   }
 };
