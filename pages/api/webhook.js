@@ -1,5 +1,7 @@
 const crypto = require('crypto');
 const { saveToGoogleDrive, saveFileToGoogleDrive } = require('../../lib/simple-drive');
+const { processVoiceMessage } = require('../../voice-transcription/lib/transcriptionService');
+const { formatTranscriptionMessage } = require('../../voice-transcription/lib/messageFormatter');
 
 // LINE署名検証
 function validateSignature(body, signature, channelSecret) {
@@ -101,8 +103,57 @@ export default async function handler(req, res) {
             
             console.log(`テキスト処理結果: ${result.success ? '成功' : '失敗'}`);
           }
-          // ファイル処理を追加
-          else if (['image', 'video', 'audio', 'file'].includes(event.message.type)) {
+          // 音声メッセージの処理（文字起こし + Google Drive保存）
+          else if (event.message.type === 'audio') {
+            console.log(`音声メッセージ処理開始: ID=${event.message.id}`);
+            
+            // 1. 音声文字起こし処理
+            if (process.env.VOICE_OPENAI_API_KEY) {
+              try {
+                const transcriptionResult = await processVoiceMessage(
+                  event.message.id,
+                  process.env.LINE_CHANNEL_ACCESS_TOKEN
+                );
+                
+                if (transcriptionResult.success) {
+                  // 文字起こし結果を返信
+                  const replyMessage = formatTranscriptionMessage(transcriptionResult);
+                  if (body.replyToken) {
+                    const axios = require('axios');
+                    await axios.post(
+                      'https://api.line.me/v2/bot/message/reply',
+                      {
+                        replyToken: body.replyToken,
+                        messages: [replyMessage]
+                      },
+                      {
+                        headers: {
+                          'Content-Type': 'application/json',
+                          'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`
+                        }
+                      }
+                    );
+                    console.log('音声文字起こし結果を返信しました');
+                  }
+                }
+              } catch (error) {
+                console.error('音声文字起こしエラー:', error.message);
+              }
+            }
+            
+            // 2. Google Driveに音声ファイルを保存（既存の処理）
+            const result = await saveFileToGoogleDrive(
+              event.message.id,
+              event.message.fileName,
+              event.source,
+              event.timestamp,
+              config
+            );
+            
+            console.log(`音声ファイル保存結果: ${result.success ? '成功' : '失敗'} - ${result.fileName || result.error}`);
+          }
+          // その他のファイル処理
+          else if (['image', 'video', 'file'].includes(event.message.type)) {
             console.log(`ファイル処理開始: ${event.message.type} (ID: ${event.message.id})`);
             
             const result = await saveFileToGoogleDrive(
