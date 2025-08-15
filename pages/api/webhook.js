@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const axios = require('axios');
 const { saveToGoogleDrive, saveFileToGoogleDrive } = require('../../lib/simple-drive');
 const { processVoiceMessage } = require('../../voice-transcription/lib/transcriptionService');
 const { formatTranscriptionMessage } = require('../../voice-transcription/lib/messageFormatter');
@@ -106,20 +107,22 @@ export default async function handler(req, res) {
           // 音声メッセージの処理（文字起こし + Google Drive保存）
           else if (event.message.type === 'audio') {
             console.log(`音声メッセージ処理開始: ID=${event.message.id}`);
+            console.log(`VOICE_OPENAI_API_KEY: ${process.env.VOICE_OPENAI_API_KEY ? '設定済み' : '未設定'}`);
             
             // 1. 音声文字起こし処理
             if (process.env.VOICE_OPENAI_API_KEY) {
               try {
                 const transcriptionResult = await processVoiceMessage(
                   event.message.id,
-                  process.env.LINE_CHANNEL_ACCESS_TOKEN
+                  process.env.LINE_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN
                 );
                 
+                console.log('文字起こし結果:', transcriptionResult);
                 if (transcriptionResult.success) {
                   // 文字起こし結果を返信
                   const replyMessage = formatTranscriptionMessage(transcriptionResult);
+                  console.log('返信メッセージ:', replyMessage);
                   if (body.replyToken) {
-                    const axios = require('axios');
                     await axios.post(
                       'https://api.line.me/v2/bot/message/reply',
                       {
@@ -129,15 +132,18 @@ export default async function handler(req, res) {
                       {
                         headers: {
                           'Content-Type': 'application/json',
-                          'Authorization': `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`
+                          'Authorization': `Bearer ${process.env.LINE_ACCESS_TOKEN || process.env.LINE_CHANNEL_ACCESS_TOKEN}`
                         }
                       }
                     );
                     console.log('音声文字起こし結果を返信しました');
                   }
+                } else {
+                  console.log('文字起こし失敗:', transcriptionResult.error);
                 }
               } catch (error) {
                 console.error('音声文字起こしエラー:', error.message);
+                console.error('エラー詳細:', error);
               }
             }
             
